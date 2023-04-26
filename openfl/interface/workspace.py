@@ -110,6 +110,30 @@ def create(prefix, template):
 
     print_tree(prefix, level=3)
 
+def _export_venv_to_libs(tmp_dir):
+    import os
+    from sys import executable
+    from shutil import copytree
+    from shutil import ignore_patterns
+    packages_dir_name = 'requirements_packages'
+    ignore = ignore_patterns('__pycache__')
+    source_lib_path = os.path.join(executable[:-11], 'lib')
+    for py_path in os.listdir(source_lib_path):
+        if py_path.startswith('python'):
+            source_package_path = os.path.join(source_lib_path, py_path, 'site-packages')
+            copytree(source_package_path, f'{tmp_dir}/{packages_dir_name}', ignore=ignore)
+
+def _export_venv_to_whls(tmp_dir):
+    from subprocess import check_call
+    from os.path import isfile
+    from sys import executable
+    packages_dir_name = 'requirements_packages'
+    if isfile('requirements.txt'):
+        check_call([
+            executable, '-m', 'pip', 'wheel', '-r', 'requirements.txt', '-w', f'{tmp_dir}/{packages_dir_name}'],
+            shell=False)
+    else:
+        echo('Failed to generate requirements.txt file.')
 
 @workspace.command(name='export')
 @option('-o', '--pip-install-options', required=False,
@@ -117,7 +141,9 @@ def create(prefix, template):
         help='Options for remote pip install. '
              'You may pass several options in quotation marks alongside with arguments, '
              'e.g. -o "--find-links source.site"')
-def export_(pip_install_options: Tuple[str]):
+@option('--method', required=False, default='lib', type=Choice(['whl','lib']),
+        help='method to export python venv packages, must be whl or lib')
+def export_(pip_install_options: Tuple[str], method):
     """Export federated learning workspace."""
     from os import getcwd
     from os import makedirs
@@ -159,7 +185,12 @@ def export_(pip_install_options: Tuple[str]):
     copytree('./src', f'{tmp_dir}/src', ignore=ignore)  # code
     copytree('./plan', f'{tmp_dir}/plan', ignore=ignore)  # plan
     copy2('./requirements.txt', f'{tmp_dir}/requirements.txt')  # requirements
-
+    if method == 'whl':
+        _export_venv_to_whls(tmp_dir)
+    elif method == 'lib':
+        _export_venv_to_libs(tmp_dir)
+    else:
+        echo('Invalid method ' + method + '.')
     try:
         copy2('.workspace', tmp_dir)  # .workspace
     except FileNotFoundError:
@@ -178,11 +209,36 @@ def export_(pip_install_options: Tuple[str]):
     echo(f'\n ✔️ Workspace exported to archive: {archive_file_name}')
 
 
+def _import_libs_to_venv():
+    import os
+    from sys import executable
+    from shutil import copytree
+    from openfl.utilities.utils import rmtree
+    packages_dir_name = 'requirements_packages'
+    target_lib_path = os.path.join(executable[:-11], 'lib')
+    for py_path in os.listdir(target_lib_path):
+        if py_path.startswith('python'):
+            target_package_path = os.path.join(target_lib_path, py_path, 'site-packages')
+            copytree(packages_dir_name, target_package_path, dirs_exist_ok=True)
+            rmtree(packages_dir_name)
+
+def _import_whls_to_venv():
+    from subprocess import check_call
+    from sys import executable
+    from openfl.utilities.utils import rmtree
+    packages_dir_name = 'requirements_packages'
+    check_call([
+        executable, '-m', 'pip', 'install', '--no-index', f'--find-links={packages_dir_name}', '-r', 'requirements.txt'],
+        shell=False)
+    rmtree(packages_dir_name)
+
 @workspace.command(name='import')
 @option('--archive', required=True,
         help='Zip file containing workspace to import',
         type=ClickPath(exists=True))
-def import_(archive):
+@option('--method', required=False, default='lib', type=Choice(['whl','lib']),
+        help='method to export python venv packages, must be whl or lib')
+def import_(archive, method):
     """Import federated learning workspace."""
     from os import chdir
     from os.path import basename
@@ -196,19 +252,19 @@ def import_(archive):
     dir_path = basename(archive).split('.')[0]
     unpack_archive(archive, extract_dir=dir_path)
     chdir(dir_path)
-
-    requirements_filename = 'requirements.txt'
-
-    if isfile(requirements_filename):
-        check_call([
-            executable, '-m', 'pip', 'install', '--upgrade', 'pip'],
-            shell=False)
-        check_call([
-            executable, '-m', 'pip', 'install', '-r', 'requirements.txt'],
-            shell=False)
+    if method == 'whl':
+        requirements_filename = 'requirements.txt'
+        if isfile(requirements_filename):
+            check_call([
+                executable, '-m', 'pip', 'install', '--upgrade', 'pip'],
+                shell=False)
+            _import_whls_to_venv()
+        else:
+            echo('No ' + requirements_filename + ' file found.')
+    elif method == 'lib':
+        _import_libs_to_venv()
     else:
-        echo('No ' + requirements_filename + ' file found.')
-
+        echo('Invalid method ' + method + '.')
     echo(f'Workspace {archive} has been imported.')
     echo('You may need to copy your PKI certificates to join the federation.')
 
