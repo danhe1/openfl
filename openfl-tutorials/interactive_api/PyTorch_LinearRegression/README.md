@@ -31,7 +31,7 @@ pip install -r requirements.txt
 ```
 Step 2: start the envoy
 ```sh
-./start_envoy.sh env_instance_1 envoy_config_1.yaml
+./start_envoy.sh env_instance_1 envoy_config.yaml
 ```
 
 Optional: start second envoy:
@@ -39,7 +39,7 @@ Optional: start second envoy:
 - Copy `envoy_folder` to another place and follow the same process as above:
 
 ```sh
-./start_envoy.sh env_instance_2 envoy_config_2.yaml
+./start_envoy.sh env_instance_2 envoy_config.yaml
 ```
 
 3. Run `torch_linear_regression.ipynb` jupyter notebook:
