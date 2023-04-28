@@ -38,7 +38,8 @@ def create_dirs(prefix):
     (prefix / 'cert').mkdir(parents=True, exist_ok=True)  # certifications
     (prefix / 'data').mkdir(parents=True, exist_ok=True)  # training data
     (prefix / 'logs').mkdir(parents=True, exist_ok=True)  # training logs
-    (prefix / 'save').mkdir(parents=True, exist_ok=True)  # model weight saves / initialization
+    # model weight saves / initialization
+    (prefix / 'save').mkdir(parents=True, exist_ok=True)
     (prefix / 'src').mkdir(parents=True, exist_ok=True)  # model code
 
     copyfile(WORKSPACE / 'workspace' / '.workspace', prefix / '.workspace')
@@ -101,7 +102,8 @@ def create(prefix, template):
         check_call([
             executable, '-m', 'pip', 'install', '-r',
             f'{prefix}/requirements.txt'], shell=False)
-        echo(f'Successfully installed packages from {prefix}/requirements.txt.')
+        echo(
+            f'Successfully installed packages from {prefix}/requirements.txt.')
     else:
         echo('No additional requirements for workspace defined. Skipping...')
     prefix_hash = _get_dir_hash(str(prefix.absolute()))
@@ -109,6 +111,19 @@ def create(prefix, template):
         check_call([executable, '-m', 'pip', 'freeze'], shell=False, stdout=f)
 
     print_tree(prefix, level=3)
+
+
+def _export_venv_to_whls(tmp_dir):
+    from subprocess import check_call
+    from os.path import isfile
+    from sys import executable
+    packages_dir_name = 'requirements_packages'
+    if isfile('requirements.txt'):
+        check_call([
+            executable, '-m', 'pip', 'wheel', '-r', 'requirements.txt', '-w', f'{tmp_dir}/{packages_dir_name}'],
+            shell=False)
+    else:
+        echo('Failed to generate requirements.txt file.')
 
 
 @workspace.command(name='export')
@@ -139,9 +154,6 @@ def export_(pip_install_options: Tuple[str]):
     except Exception:
         echo(f'Plan file "{plan_file}" not found. No freeze performed.')
 
-    # Dump requirements.txt
-    dump_requirements_file(prefixes=pip_install_options, keep_original_prefixes=True)
-
     archive_type = 'zip'
     archive_name = basename(getcwd())
     archive_file_name = archive_name + '.' + archive_type
@@ -160,6 +172,7 @@ def export_(pip_install_options: Tuple[str]):
     copytree('./plan', f'{tmp_dir}/plan', ignore=ignore)  # plan
     copy2('./requirements.txt', f'{tmp_dir}/requirements.txt')  # requirements
 
+    _export_venv_to_whls(tmp_dir)
     try:
         copy2('.workspace', tmp_dir)  # .workspace
     except FileNotFoundError:
@@ -176,6 +189,17 @@ def export_(pip_install_options: Tuple[str]):
     make_archive(archive_name, archive_type, tmp_dir)
     rmtree(tmp_dir)
     echo(f'\n ✔️ Workspace exported to archive: {archive_file_name}')
+
+
+def _import_whls_to_venv():
+    from subprocess import check_call
+    from sys import executable
+    from openfl.utilities.utils import rmtree
+    packages_dir_name = 'requirements_packages'
+    check_call([
+        executable, '-m', 'pip', 'install', '--no-index', f'--find-links={packages_dir_name}', '-r', 'requirements.txt'],
+        shell=False)
+    rmtree(packages_dir_name)
 
 
 @workspace.command(name='import')
@@ -203,9 +227,12 @@ def import_(archive):
         check_call([
             executable, '-m', 'pip', 'install', '--upgrade', 'pip'],
             shell=False)
-        check_call([
-            executable, '-m', 'pip', 'install', '-r', 'requirements.txt'],
-            shell=False)
+        try:
+            _import_whls_to_venv()
+        except:
+            check_call([
+                executable, '-m', 'pip', 'install', '-r', 'requirements.txt'],
+                shell=False)
     else:
         echo('No ' + requirements_filename + ' file found.')
 
@@ -311,7 +338,8 @@ def certify():
 
     echo('2.4 Sign Signing Certificate CSR')
 
-    signing_cert = sign_certificate(signing_csr, root_private_key, root_cert.subject, ca=True)
+    signing_cert = sign_certificate(
+        signing_csr, root_private_key, root_cert.subject, ca=True)
 
     with open(CERT_DIR / signing_crt_path, 'wb') as f:
         f.write(signing_cert.public_bytes(
@@ -381,7 +409,8 @@ def dockerize_(context, base_image, save):
     dockerfile_workspace = 'Dockerfile.workspace'
     # Apparently, docker's python package does not support
     # scenarios when the dockerfile is placed outside the build context
-    copyfile(os.path.join(openfl_docker_dir, dockerfile_workspace), dockerfile_workspace)
+    copyfile(os.path.join(openfl_docker_dir,
+             dockerfile_workspace), dockerfile_workspace)
 
     workspace_path = os.getcwd()
     workspace_name = os.path.basename(workspace_path)
@@ -514,7 +543,8 @@ def graminize_(context, signing_key: Path, enclave_size: str, tag: str,
     context.invoke(export_, pip_install_options=pip_install_options)
     workspace_archive = workspace_path / f'{workspace_name}.zip'
 
-    grainized_ws_dockerfile = SITEPACKS / 'openfl-gramine' / 'Dockerfile.graminized.workspace'
+    grainized_ws_dockerfile = SITEPACKS / \
+        'openfl-gramine' / 'Dockerfile.graminized.workspace'
 
     echo('\n 🐋 Building graminized workspace image...')
     signing_key = f'--secret id=signer-key,src={signing_key} ' if sgx_build else ''
