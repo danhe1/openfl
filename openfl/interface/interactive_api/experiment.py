@@ -236,7 +236,6 @@ class FLExperiment:
 
         self._prepare_plan(model_provider, data_loader,
                            rounds_to_train,
-                           aggregator=aggregator, collaborator=collaborator,
                            delta_updates=delta_updates, opt_treatment=opt_treatment,
                            device_assignment_policy=device_assignment_policy,
                            override_config=override_config,
