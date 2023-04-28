@@ -335,7 +335,16 @@ class Plan:
 
         defaults[SETTINGS]['log_metric_callback'] = log_metric_callback
         if self.aggregator_ is None:
-            self.aggregator_ = Plan.build(**defaults, initial_tensor_dict=tensor_dict)
+            # Try loading the aggregator from the serialized object file
+            api_layer = self.config['api_layer']
+            obj_file = api_layer['settings']['aggregator_interface_file']
+            self.aggregator_ = self.restore_object(obj_file)
+
+            if self.aggregator_ is None: # Failed to load the object file
+                self.aggregator_ = Plan.build(**defaults, initial_tensor_dict=tensor_dict)
+            else:
+                # Pass the settings to the deserialized object
+                self.aggregator_.initialize(**defaults, initial_tensor_dict=tensor_dict)
 
         return self.aggregator_
 
@@ -491,7 +500,16 @@ class Plan:
             )
 
         if self.collaborator_ is None:
-            self.collaborator_ = Plan.build(**defaults)
+            # Try loading the collaborator from the serialized object file
+            api_layer = self.config['api_layer']
+            obj_file = api_layer['settings']['collaborator_interface_file']
+            self.collaborator_ = self.restore_object(obj_file)
+
+            if self.collaborator_ is None: # Failed to load from the object file
+                self.collaborator_ = Plan.build(**defaults)
+            else:
+                # Pass the settings to the deserialized object
+                self.collaborator_.initialize(**default)
 
         return self.collaborator_
 
@@ -588,8 +606,12 @@ class Plan:
 
     def restore_object(self, filename):
         """Deserialize an object."""
+        import os
+
         serializer_plugin = self.get_serializer_plugin()
         if serializer_plugin is None:
+            return None
+        if not os.path.exists(filename):
             return None
         obj = serializer_plugin.restore_object(filename)
         return obj
