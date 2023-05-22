@@ -120,7 +120,7 @@ def _export_venv_to_whls(tmp_dir):
     packages_dir_name = 'requirements_packages'
     if isfile('requirements.txt'):
         check_call([
-            executable, '-m', 'pip', 'wheel', '-r', 'requirements.txt', '-w', f'{tmp_dir}/{packages_dir_name}'],
+            executable, '-m', 'pip', 'wheel', '-r', 'requirements.txt', '-w', f'{tmp_dir}/{packages_dir_name}'], '--no-deps',
             shell=False)
     else:
         echo('Failed to generate requirements.txt file.')
@@ -197,7 +197,7 @@ def _import_whls_to_venv():
     from openfl.utilities.utils import rmtree
     packages_dir_name = 'requirements_packages'
     check_call([
-        executable, '-m', 'pip', 'install', '--no-index', f'--find-links={packages_dir_name}', '-r', 'requirements.txt'],
+        executable, '-m', 'pip', 'install', f'--find-links={packages_dir_name}', '-r', 'requirements.txt'],
         shell=False)
     rmtree(packages_dir_name)
 
