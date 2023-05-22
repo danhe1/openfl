@@ -17,7 +17,6 @@ from click import pass_context
 from click import Path as ClickPath
 
 from openfl.utilities.path_check import is_directory_traversal
-from openfl.utilities.workspace import dump_requirements_file
 
 
 @group()
@@ -120,8 +119,8 @@ def _export_venv_to_whls(tmp_dir):
     packages_dir_name = 'requirements_packages'
     if isfile('requirements.txt'):
         check_call([
-            executable, '-m', 'pip', 'wheel', '-r', 'requirements.txt', '-w', f'{tmp_dir}/{packages_dir_name}'], '--no-deps',
-            shell=False)
+            executable, '-m', 'pip', 'wheel', '-r', 'requirements.txt', '-w',
+            f'{tmp_dir}/{packages_dir_name}'], '--no-deps', shell=False)
     else:
         echo('Failed to generate requirements.txt file.')
 
@@ -197,8 +196,8 @@ def _import_whls_to_venv():
     from openfl.utilities.utils import rmtree
     packages_dir_name = 'requirements_packages'
     check_call([
-        executable, '-m', 'pip', 'install', f'--find-links={packages_dir_name}', '-r', 'requirements.txt'],
-        shell=False)
+        executable, '-m', 'pip', 'install', f'--find-links={packages_dir_name}',
+        '-r', 'requirements.txt'], shell=False)
     rmtree(packages_dir_name)
 
 
@@ -229,7 +228,7 @@ def import_(archive):
             shell=False)
         try:
             _import_whls_to_venv()
-        except:
+        except Exception:
             check_call([
                 executable, '-m', 'pip', 'install', '-r', 'requirements.txt'],
                 shell=False)
@@ -543,8 +542,7 @@ def graminize_(context, signing_key: Path, enclave_size: str, tag: str,
     context.invoke(export_, pip_install_options=pip_install_options)
     workspace_archive = workspace_path / f'{workspace_name}.zip'
 
-    grainized_ws_dockerfile = SITEPACKS / \
-        'openfl-gramine' / 'Dockerfile.graminized.workspace'
+    grainized_ws_dockerfile = SITEPACKS / 'openfl-gramine' / 'Dockerfile.graminized.workspace'
 
     echo('\n 🐋 Building graminized workspace image...')
     signing_key = f'--secret id=signer-key,src={signing_key} ' if sgx_build else ''
